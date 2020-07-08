@@ -1,6 +1,41 @@
 let transactions = [];
 let myChart;
 
+//getAll from indexedDB
+function loadAllFromIndexedDB() {
+  return new Promise(
+    function (resolve, reject) {
+      var dbRequest = indexedDB.open("offlineBudgetDB", 1);
+
+      dbRequest.onerror = function (event) {
+        reject(Error("Error text"));
+      };
+
+      dbRequest.onupgradeneeded = function (event) {
+        // Objectstore does not exist. Nothing to load
+        event.target.transaction.abort();
+        reject(Error('Not found'));
+      };
+
+      dbRequest.onsuccess = function (event) {
+        var database = event.target.result;
+        var transaction = database.transaction(["cache"], "readwrite");
+        var objectStore = transaction.objectStore("cache");
+        var objectRequest = objectStore.getAll();
+
+        objectRequest.onerror = function (event) {
+          reject(Error('Error text'));
+        };
+
+        objectRequest.onsuccess = function (event) {
+          if (objectRequest.result) resolve(objectRequest.result);
+          else reject(Error('object not found'));
+        };
+      };
+    }
+  );
+}
+
 fetch("/api/transaction")
   .then(response => {
     return response.json();
@@ -9,9 +44,18 @@ fetch("/api/transaction")
     // save db data on global variable
     transactions = data;
 
-    populateTotal();
-    populateTable();
-    populateChart();
+    console.log("1: ", transactions);
+
+    loadAllFromIndexedDB().then(function (response) {
+      console.log("2: ", response);
+      if (response.length > 0) {
+        transactions.push(...response);
+      }
+      console.log("3: ", transactions);
+      populateTotal();
+      populateTable();
+      populateChart();
+    });
   });
 
 function populateTotal() {
@@ -66,14 +110,14 @@ function populateChart() {
 
   myChart = new Chart(ctx, {
     type: 'line',
-      data: {
-        labels,
-        datasets: [{
-            label: "Total Over Time",
-            fill: true,
-            backgroundColor: "#6666ff",
-            data
-        }]
+    data: {
+      labels,
+      datasets: [{
+        label: "Total Over Time",
+        fill: true,
+        backgroundColor: "#6666ff",
+        data
+      }]
     }
   });
 }
@@ -111,7 +155,7 @@ function sendTransaction(isAdding) {
   populateChart();
   populateTable();
   populateTotal();
-  
+
   // also send to server
   fetch("/api/transaction", {
     method: "POST",
@@ -121,33 +165,33 @@ function sendTransaction(isAdding) {
       "Content-Type": "application/json"
     }
   })
-  .then(response => {    
-    return response.json();
-  })
-  .then(data => {
-    if (data.errors) {
-      errorEl.textContent = "Missing Information";
-    }
-    else {
+    .then(response => {
+      return response.json();
+    })
+    .then(data => {
+      if (data.errors) {
+        errorEl.textContent = "Missing Information";
+      }
+      else {
+        // clear form
+        nameEl.value = "";
+        amountEl.value = "";
+      }
+    })
+    .catch(err => {
+      // fetch failed, so save in indexed db
+      saveRecord(transaction);
+
       // clear form
       nameEl.value = "";
       amountEl.value = "";
-    }
-  })
-  .catch(err => {
-    // fetch failed, so save in indexed db
-    saveRecord(transaction);
-
-    // clear form
-    nameEl.value = "";
-    amountEl.value = "";
-  });
+    });
 }
 
-document.querySelector("#add-btn").onclick = function() {
+document.querySelector("#add-btn").onclick = function () {
   sendTransaction(true);
 };
 
-document.querySelector("#sub-btn").onclick = function() {
+document.querySelector("#sub-btn").onclick = function () {
   sendTransaction(false);
 };
