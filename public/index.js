@@ -24,9 +24,6 @@ fetch("/api/transaction")
       populateTable();
       populateChart();
     });
-    // populateTotal();
-    // populateTable();
-    // populateChart();
   }).catch((err) => {
     console.log(err);
   });
