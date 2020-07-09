@@ -1,6 +1,36 @@
 let transactions = [];
 let myChart;
 
+fetch("/api/transaction")
+  .then(response => {
+    return response.json();
+  })
+  .then(data => {
+    // save db data on global variable
+
+    if (Array.isArray(data)) {
+      transactions = data;
+    } else {
+      transactions = [data];
+    }
+
+    loadAllFromIndexedDB().then(function (response) {
+      //if we have data in indexedDB push it to transactions
+      if (response.length > 0) {
+        transactions.push(...response);
+      }
+
+      populateTotal();
+      populateTable();
+      populateChart();
+    });
+    populateTotal();
+    populateTable();
+    populateChart();
+  }).catch((err) => {
+    console.log(err);
+  });
+
 //getAll from indexedDB
 function loadAllFromIndexedDB() {
   return new Promise(
@@ -35,28 +65,6 @@ function loadAllFromIndexedDB() {
     }
   );
 }
-
-fetch("/api/transaction")
-  .then(response => {
-    return response.json();
-  })
-  .then(data => {
-    // save db data on global variable
-    transactions = data;
-
-    console.log("1: ", transactions);
-
-    loadAllFromIndexedDB().then(function (response) {
-      console.log("2: ", response);
-      if (response.length > 0) {
-        transactions.push(...response);
-      }
-      console.log("3: ", transactions);
-      populateTotal();
-      populateTable();
-      populateChart();
-    });
-  });
 
 function populateTotal() {
   // reduce transaction amounts to a single total value
